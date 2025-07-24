@@ -188,6 +188,18 @@ pnpm update --latest
    - Ensure content paths are correct in tailwind.config.js
    - Restart dev server
 
+### Deployment Issues
+
+**Problem**: Generated JS and CSS files not deployed via GitHub Actions
+
+**Solution**:
+1. **Check .gitignore**: Ensure `dist/` is not being tracked by Git (it should be ignored)
+2. **GitHub Actions workflow**: The provided workflow builds the project on GitHub's servers
+3. **GitHub Pages settings**: Ensure Pages is enabled in repository settings
+4. **Base path**: Update `base` in `vite.config.js` to match your repository name
+
+**Important**: The `dist/` folder is intentionally in `.gitignore` - GitHub Actions builds the project fresh on each deployment, so the generated files don't need to be committed to the repository.
+
 ## 📄 License
 
 MIT License - feel free to use this template for any project!

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Optimized Vite + Tailwind CSS + Lightning CSS starter template",
+  "homepage": "https://your-username.github.io/vite-tailwind-lightning",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
