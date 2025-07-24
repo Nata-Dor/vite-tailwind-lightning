@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Purge Test Runner</title>
+</head>
+<body>
+    <h1>CSS Purge Test Runner</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Simple browser-based CSS purging test
+        const ACTIVE_CLASSES = [
+            'header', 'header-title', 'nav', 'nav-link', 'btn', 'btn-primary', 'btn-secondary',
+            'card', 'card-title', 'card-content', 'grid', 'grid-cols-2', 'grid-cols-3',
+            'form-group', 'form-label', 'form-input', 'text-center', 'text-left', 'text-right',
+            'font-bold', 'font-semibold', 'font-normal', 'text-sm', 'text-base', 'text-lg', 'text-xl',
+            'mt-1', 'mt-2', 'mt-3', 'mt-4', 'mb-1', 'mb-2', 'mb-3', 'mb-4',
+            'p-1', 'p-2', 'p-3', 'p-4', 'responsive-grid', 'mobile-hidden', 'desktop-only'
+        ];
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function purgeCSS(css, activeClasses) {
+            const activeSet = new Set(activeClasses);
+            const rules = css.split(/(?=}|@media|@keyframes|@font-face)/g);
+            
+            const preservedRules = rules.filter(rule => {
+                if (!rule.trim()) return false;
+                
+                // Always preserve @media, @keyframes, @font-face rules
+                if (rule.trim().startsWith('@media') || 
+                    rule.trim().startsWith('@keyframes') || 
+                    rule.trim().startsWith('@font-face')) {
+                    return true;
+                }
+                
+                // Check if any active class is used
+                for (const className of activeClasses) {
+                    if (rule.includes(`.${className}`) || 
+                        rule.includes(`#${className}`)) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+            
+            return preservedRules.join('\n').trim();
+        }
+
+        function calculateCompression(original, purged) {
+            const originalSize = new Blob([original]).size;
+            const purgedSize = new Blob([purged]).size;
+            const reduction = originalSize - purgedSize;
+            const reductionPercentage = ((reduction / originalSize) * 100).toFixed(2);
+            
+            return {
+                originalSize,
+                purgedSize,
+                reduction,
+                reductionPercentage,
+                originalFormatted: formatBytes(originalSize),
+                purgedFormatted: formatBytes(purgedSize),
+            };
+        }
+
+        async function runTest() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>🚀 Starting CSS Purging Test...</p>';
+            
+            try {
+                // Fetch the CSS file
+                const response = await fetch('tests/test-css-purge.css');
+                const originalCSS = await response.text();
+                
+                const originalSize = new Blob([originalCSS]).size;
+                output.innerHTML += `<p>📊 Original CSS size: ${formatBytes(originalSize)}</p>`;
+                
+                // Run CSS purging
+                const purgedCSS = purgeCSS(originalCSS, ACTIVE_CLASSES);
+                
+                // Calculate compression stats
+                const stats = calculateCompression(originalCSS, purgedCSS);
+                
+                // Display results
+                output.innerHTML += `
+                    <h2>✅ Test Results</h2>
+                    <ul>
+                        <li>CSS purging removed <strong>${stats.reductionPercentage}%</strong> of the original CSS</li>
+                        <li>Size reduction: ${stats.originalFormatted} → ${stats.purgedFormatted}</li>
+                        <li>Removed: ${formatBytes(stats.reduction)}</li>
+                        <li>Classes preserved: ${ACTIVE_CLASSES.length}</li>
+                    </ul>
+                `;
+                
+                // Display sample of purged CSS
+                output.innerHTML += `
+                    <h3>Sample of Purged CSS (first 500 chars):</h3>
+                    <pre style="background: #f5f5f5; padding: 10px; overflow-x: auto;">${purgedCSS.substring(0, 500)}...</pre>
+                `;
+                
+                // Create download link
+                const blob = new Blob([purgedCSS], { type: 'text/css' });
+                const url = URL.createObjectURL(blob);
+                output.innerHTML += `<p><a href="${url}" download="purged-output.css">Download Purged CSS</a></p>`;
+                
+            } catch (error) {
+                output.innerHTML += `<p style="color: red;">❌ Test failed: ${error.message}</p>`;
+            }
+        }
+
+        // Run test when page loads
+        runTest();
+    </script>
+</body>
+</html>

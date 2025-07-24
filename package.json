@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:purge": "node tests/css-purge-test.js"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
