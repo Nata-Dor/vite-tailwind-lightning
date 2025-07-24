@@ -11,7 +11,7 @@ counter.innerHTML = `
       Vite + Tailwind CSS + Lightning CSS
     </h1>
     <p class="text-gray-600 mb-8">
-      Optimized starter template with modern best practices!!
+      Optimized starter template with modern best practices
     </p>
     
     <div class="bg-white rounded-lg shadow-lg p-8">
