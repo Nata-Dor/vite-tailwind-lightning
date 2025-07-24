@@ -4,13 +4,14 @@
   :root {
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   }
-  
+  /*
   * {
     @apply border-border;
   }
+  */
   
   body {
-    @apply bg-background text-foreground;
+   /* @apply bg-background text-foreground; */
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
