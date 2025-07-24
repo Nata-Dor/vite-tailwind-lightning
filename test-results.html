@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Purging Test Results</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin: 1rem 0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 4px;
+            height: 8px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: #007bff;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .log-entry {
+            background: #f8f9fa;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 CSS Purging Test Results</h1>
+            <p>LightningCSS Purging Analysis Report</p>
+        </div>
+
+        <div id="test-results">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="original-size">-</div>
+                    <div class="stat-label">Original Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="purged-size">-</div>
+                    <div class="stat-label">Purged Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="reduction-percent">-</div>
+                    <div class="stat-label">Reduction %</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="classes-preserved">-</div>
+                    <div class="stat-label">Classes Preserved</div>
+                </div>
+            </div>
+
+            <div>
+                <h3>Compression Progress</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <div id="progress-text">Initializing...</div>
+            </div>
+
+            <div>
+                <h3>Test Log</h3>
+                <div id="log-container">
+                    <div class="log-entry info">📊 Loading test CSS file...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test configuration
+        const ACTIVE_CLASSES = [
+            'header', 'header-title', 'nav', 'nav-link', 'btn', 'btn-primary', 'btn-secondary',
+            'card', 'card-title', 'card-content', 'grid', 'grid-cols-2', 'grid-cols-3',
+            'form-group', 'form-label', 'form-input', 'text-center', 'text-left', 'text-right',
+            'font-bold', 'font-semibold', 'font-normal', 'text-sm', 'text-base', 'text-lg', 'text-xl',
+            'mt-1', 'mt-2', 'mt-3', 'mt-4', 'mb-1', 'mb-2', 'mb-3', 'mb-4',
+            'p-1', 'p-2', 'p-3', 'p-4', 'responsive-grid', 'mobile-hidden', 'desktop-only'
+        ];
+
+        // Utility functions
+        function calculateHash(input) {
+            let hash = 0;
+            for (let i = 0; i < input.length; i++) {
+                const char = input.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+
+        function getCurrentTimestamp() {
+            const now = new Date();
+            return now.toISOString().replace('T', ' ').substring(0, 19);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function purgeCSS(css, activeClasses) {
+            const activeSelectors = new Set(activeClasses);
+            const lines = css.split('\n');
+            const purgedLines = [];
+            let skipBlock = false;
+            let bracketCount = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Skip comments and empty lines
+                if (line.startsWith('/*') || line === '') {
+                    purgedLines.push(lines[i]);
+                    continue;
+                }
+                
+                // Handle at-rules
+                if (line.startsWith('@')) {
+                    purgedLines.push(lines[i]);
+                    continue;
+                }
+                
+                // Check if this is a selector line
+                if (line.includes('{') && bracketCount === 0) {
+                    const selector = line.split('{')[0].trim();
+                    const className = selector.replace('.', '');
+                    
+                    // Keep if it's an active class or contains pseudo-selectors
+                    const isActive = activeSelectors.has(className) || 
+                                   selector.includes(':') || 
+                                   selector.includes(' ') ||
+                                   selector.includes(',');
+                    
+                    if (isActive) {
+                        skipBlock = false;
+                        purgedLines.push(lines[i]);
+                        bracketCount += (line.match(/{/g) || []).length;
+                        bracketCount -= (line.match(/}/g) || []).length;
+                    } else {
+                        skipBlock = true;
+                        bracketCount = 0;
+                    }
+                } else {
+                    if (!skipBlock) {
+                        purgedLines.push(lines[i]);
+                    }
+                    
+                    // Track brackets
+                    bracketCount += (line.match(/{/g) || []).length;
+                    bracketCount -= (line.match(/}/g) || []).length;
+                    
+                    if (bracketCount <= 0) {
+                        skipBlock = false;
+                        bracketCount = 0;
+                    }
+                }
+            }
+            
+            return purgedLines.join('\n');
+        }
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateProgress(percent, text) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            progressFill.style.width = `${percent}%`;
+            progressText.textContent = text;
+        }
+
+        async function runTest() {
+            try {
+                log('📊 Loading test CSS file...', 'info');
+                updateProgress(10, 'Loading CSS...');
+                
+                // Simulate loading the test CSS
+                const testCSS = `/* Large representative CSS file with unused selectors */
+/* Size: ~52KB */
+
+/* Reset and base styles - used */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f8f9fa;
+}
+
+/* Header styles - used */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+}
+
+/* Navigation - used */
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+/* Button styles - used */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Card styles - used */
+.card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+
+.card-content {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Grid system - used */
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Form styles - used */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* Utility classes - mixed usage */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-normal { font-weight: 400; }
+
+.text-sm { font-size: 0.875rem; }
+.text-base { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+
+/* Unused utility classes - will be purged */
+.unused-class-1 { color: red; }
+.unused-class-2 { background: blue; }
+.unused-helper { display: none; }
+.hidden-element { visibility: hidden; }
+.old-style { font-family: serif; }
+.redundant-style { border: 1px solid black; }
+.extra-padding { padding: 2rem; }
+.unused-margin { margin: 3rem; }
+.legacy-class { text-decoration: underline; }
+.deprecated-style { opacity: 0.5; }
+
+.unused-flex { display: flex; }
+.unused-grid { display: grid; }
+.unused-block { display: block; }
+.unused-inline { display: inline; }
+.unused-inline-block { display: inline-block; }
+
+.unused-bg-red { background-color: red; }
+.unused-bg-blue { background-color: blue; }
+.unused-bg-green { background-color: green; }
+.unused-bg-yellow { background-color: yellow; }
+
+.unused-text-small { font-size: 0.75rem; }
+.unused-text-large { font-size: 1.5rem; }
+.unused-text-huge { font-size: 2rem; }
+
+.unused-border { border: 1px solid #ccc; }
+.unused-border-thick { border: 3px solid #000; }
+.unused-border-dashed { border: 1px dashed #999; }
+
+.unused-rounded { border-radius: 50%; }
+.unused-rounded-sm { border-radius: 2px; }
